@@ -74,6 +74,10 @@ class FFNeuralNetwork {
 		}
 	}
 
+	public void testClassifier(double[][] x, double[] y) {
+		testClassifier(x, y, false);
+	}
+
 	public void testClassifier(double[][] x, double[] y, boolean verbose) {
 		int correct = 0;
 		for (int i = 0; i < x.length; i++) {
@@ -90,6 +94,8 @@ class FFNeuralNetwork {
 			}
 			if (prediction == y[i])
 				correct++;
+			if (verbose)
+				System.out.println(i + ": " + (prediction == y[i]));
 		}
 		System.out.println("accuracy: " + (double) correct / (double) x.length);
 	}

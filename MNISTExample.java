@@ -21,7 +21,7 @@ class MNISTExample {
 
 		net.fillRandWeights(-1, 1);
 		net.train(images, labels, 7, 0.003, true);
-		net.testClassifier(tImages, tLabels, true);
+		net.testClassifier(tImages, tLabels, false);
 	}
 
 	public static double[][] oneHotDigit(int[] x) {
