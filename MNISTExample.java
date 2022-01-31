@@ -2,6 +2,8 @@
 import java.io.*;
 import java.util.Arrays;
 
+//7 * 0.003 all sigmoid = 0.88
+
 class MNISTExample {
 
 	static InputStream inputStream;
@@ -15,9 +17,11 @@ class MNISTExample {
 
 		FFNeuralNetwork net = new FFNeuralNetwork(784);
 
+		double[][] actTest = duplicateFirstLabel(trainLabels);
+
 		net.addLayer(200, FFNeuralNetwork.ActivationFunction.sigmoid);
 		net.addLayer(80, FFNeuralNetwork.ActivationFunction.sigmoid);
-		net.addLayer(10, FFNeuralNetwork.ActivationFunction.sigmoid);
+		net.addLayer(10, FFNeuralNetwork.ActivationFunction.softmax);
 
 		net.fillRandWeights(-1, 1);
 		net.train(trainImages, trainLabels, 1, 0.003, true);
@@ -73,7 +77,7 @@ class MNISTExample {
 		return result;
 	}
 
-	//for testing basic functionality of neural network (learn 1 case)
+	//for testing basic functionality (learn 1 case)
 	private static double[][] duplicateFirstLabel(double[][] labels) {
 		double[][] testMatrix = new double[labels.length][labels[0].length];
 		for (int i = 0; i < testMatrix.length; i++)

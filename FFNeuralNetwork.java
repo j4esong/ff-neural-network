@@ -1,5 +1,5 @@
 
-//todo: implement other activations
+//todo: test all activations, implement other losses + mbsgd, gd
 
 import java.util.Arrays;
 
@@ -148,14 +148,19 @@ class FFNeuralNetwork {
 			case ReLU:
 				values = ReLU(values);
 				break;
+			case softmax:
+				values = softmax(values);
+				break;
+			case tanh:
+				values = dtanh(values);
+				break;
 			}
 			if (next != null)
 				next.forward(append(values, 1));
 		}
 
 		private void backward(double[][] upstreamGrad) {
-			//what to initialize localGrad to?
-			//can't be dsigmoid because dsigmoid modifies values
+			//what to initialize localGrad to? can't be dsigmoid because dsigmoid modifies values
 			double[][] localGrad = values;
 			switch (activation) {
 			case sigmoid:
@@ -164,10 +169,15 @@ class FFNeuralNetwork {
 			case ReLU:
 				localGrad = dReLU(values);
 				break;
+			case softmax:
+				localGrad = dsoftmax(values);
+				break;
+			case tanh:
+				localGrad = dtanh(values);
+				break;
 			}
-			for (int i = 0; i < upstreamGrad[0].length; i++) {
+			for (int i = 0; i < upstreamGrad[0].length; i++)
 				upstreamGrad[0][i] = upstreamGrad[0][i] * localGrad[0][i];
-			}
 			gradWeights = Matrices.multiply(upstreamGrad, Matrices.transpose(input));
 			if (prev != null)
 				prev.backward(Matrices.multiply(Matrices.transpose(weights), (next == null) ? upstreamGrad : truncateLast(upstreamGrad)));
@@ -177,14 +187,19 @@ class FFNeuralNetwork {
 			weights = Matrices.subtract(weights, Matrices.scalarMultiply(gradWeights, step));
 		}
 
-		//only takes vector inputs
+		/*
+		since values field has already been updated with activation in forward pass,
+		dReLU and dsigmoid, etc. have to be in terms of ReLU and sigmoid
+
+		all activation functions modify the reference (values field) and only take vector inputs
+		*/
+
 		private static double[][] sigmoid(double[][] x) {
 			for (int i = 0; i < x[0].length; i++)
 				x[0][i] = 1.0 / (1.0 + Math.exp(-1.0 * x[0][i]));
 			return x;
 		}
 
-		//dsigmoid(x)/dx = (1 - sigmoid(x)) * sigmoid(x)
 		private static double[][] dsigmoid(double[][] sigmoid) {
 			for (int i = 0; i < sigmoid[0].length; i++)
 				sigmoid[0][i] = (1 - sigmoid[0][i]) * sigmoid[0][i];
@@ -197,14 +212,37 @@ class FFNeuralNetwork {
 			return x;
 		}
 
-		/*
-		since values field has already been updated with activation in forward pass,
-		dReLU and dsigmoid have to be in terms of ReLU and sigmoid
-		*/
 		private static double[][] dReLU(double[][] x) {
 			for (int i = 0; i < x[0].length; i++)
 				if (x[0][i] != 0)
 					x[0][i] = 1;
+			return x;
+		}
+
+		public static double[][] softmax(double[][] x) {
+			double denom = 0;
+			for (int i = 0; i < x[0].length; i++) {
+				x[0][i] = Math.exp(x[0][i]);
+				denom += x[0][i];
+			}
+			for (int i = 0; i < x[0].length; i++)
+				x[0][i] /= denom;
+			return x;
+		}
+
+		public static double[][] dsoftmax(double[][] x) {
+			return x;
+		}
+
+		public static double[][] tanh(double[][] x) {
+			for (int i = 0; i < x[0].length; i++)
+				x[0][i] = (Math.exp(2 * x[0][i]) - 1) / (Math.exp(2 * x[0][i]) + 1);
+			return x;
+		}
+
+		public static double[][] dtanh(double[][] x) {
+			for (int i = 0; i < x[0].length; i++)
+				x[0][i] = 1 - Math.pow(x[0][i], 2);
 			return x;
 		}
 
