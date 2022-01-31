@@ -1,5 +1,5 @@
 
-//todo: implement other activations, figure out encapsulation stuff
+//todo: implement other activations
 
 import java.util.Arrays;
 
@@ -18,15 +18,14 @@ class FFNeuralNetwork {
 
 	public void addLayer(int neurons, ActivationFunction f) {
 		if (size == 0) {
-			firstLayer = new Layer(new double[inputNodes + 1][neurons], null, null);
+			firstLayer = new Layer(new double[inputNodes + 1][neurons], null, null, f);
 		} else {
 			Layer currentLayer = getLayer(size);
-			currentLayer.next = new Layer(new double[currentLayer.weights[0].length + 1][neurons], currentLayer, null);
+			currentLayer.next = new Layer(new double[currentLayer.weights[0].length + 1][neurons], currentLayer, null, f);
 		}
 		size++;
 	}
 
-	//can users modify weights from reference?
 	public double[][] getLayerWeights(int layer) {
 		return getLayer(layer).weights;
 	}
@@ -50,23 +49,23 @@ class FFNeuralNetwork {
 		}
 	}
 
-	public void train(double[][] x, double[][] y, int passes, double step) {
-		train(x, y, passes, step, false);
+	public void train(double[][] x, double[][] y, int epochs, double step) {
+		train(x, y, epochs, step, false);
 	}
 
-	public void train(double[][] x, double[][] y, int passes, double step, boolean verbose) {
+	public void train(double[][] x, double[][] y, int epochs, double step, boolean verbose) {
 		this.step = step;
-		for (int pass = 0; pass < passes; pass++) {
+		for (int epoch = 0; epoch < epochs; epoch++) {
 			for (int i = 0; i < x.length; i++) {
 				double[][] phi = {x[i]};
 				firstLayer.forward(Layer.append(phi, 1));
 				Layer lastLayer = getLayer(size);
 				if (verbose) {
 					double loss = 0;
-					double[][] residuals = Matrices.subtract(lastLayer.values, new double[][] {y[i]});	//im pretty sure this works
+					double[][] residuals = Matrices.subtract(lastLayer.values, new double[][] {y[i]});
 					for (int j = 0; j < residuals[0].length; j++)
 						loss += Math.pow(residuals[0][j], 2);
-					System.out.println((pass + 1) + "-" + i + ": " + loss);
+					System.out.println((epoch + 1) + "-" + i + ": " + loss);
 				}
 				lastLayer.backward(Matrices.scalarMultiply(Matrices.subtract(lastLayer.values, new double[][] {y[i]}), 2));
 				updateAll();
@@ -120,55 +119,93 @@ class FFNeuralNetwork {
 
 	private static class Layer {
 
-		public double[][] weights;
-		public double[][] values;
+		private double[][] weights;
+		private double[][] values;
 
-		public double[][] gradWeights;
-		public double[][] input;		//to calculate gradient in backprop
+		private double[][] gradWeights;
+		//input received from prev, including weight
+		private double[][] input;
 
-		public Layer next;
-		public Layer prev;
+		private Layer next;
+		private Layer prev;
 
-		public Layer(double[][] weights, Layer prev, Layer next) {
+		private ActivationFunction activation;
+
+		private Layer(double[][] weights, Layer prev, Layer next, ActivationFunction activation) {
 			this.weights = weights;
 			this.prev = prev;
 			this.next = next;
+			this.activation = activation;
 		}
 
-		public void forward(double[][] input) {
+		private void forward(double[][] input) {
 			this.input = input;
 			values = Matrices.multiply(weights, input);
-			values = sigmoid(values);
+			switch (activation) {
+			case sigmoid:
+				values = sigmoid(values);
+				break;
+			case ReLU:
+				values = ReLU(values);
+				break;
+			}
 			if (next != null)
 				next.forward(append(values, 1));
 		}
 
-		public void backward(double[][] grad) {
-			double[][] temp = dsigmoid(values);
-			for (int i = 0; i < grad[0].length; i++) {
-				grad[0][i] = grad[0][i] * temp[0][i];
+		private void backward(double[][] upstreamGrad) {
+			//what to initialize localGrad to?
+			//can't be dsigmoid because dsigmoid modifies values
+			double[][] localGrad = values;
+			switch (activation) {
+			case sigmoid:
+				localGrad = dsigmoid(values);
+				break;
+			case ReLU:
+				localGrad = dReLU(values);
+				break;
 			}
-			gradWeights = Matrices.multiply(grad, Matrices.transpose(input));
+			for (int i = 0; i < upstreamGrad[0].length; i++) {
+				upstreamGrad[0][i] = upstreamGrad[0][i] * localGrad[0][i];
+			}
+			gradWeights = Matrices.multiply(upstreamGrad, Matrices.transpose(input));
 			if (prev != null)
-				prev.backward(Matrices.multiply(Matrices.transpose(weights), (next == null) ? grad : truncateLast(grad)));
+				prev.backward(Matrices.multiply(Matrices.transpose(weights), (next == null) ? upstreamGrad : truncateLast(upstreamGrad)));
 		}
 
-		public void update() {
+		private void update() {
 			weights = Matrices.subtract(weights, Matrices.scalarMultiply(gradWeights, step));
 		}
 
-		//x must be a vector
-		private double[][] sigmoid(double[][] x) {
+		//only takes vector inputs
+		private static double[][] sigmoid(double[][] x) {
 			for (int i = 0; i < x[0].length; i++)
 				x[0][i] = 1.0 / (1.0 + Math.exp(-1.0 * x[0][i]));
 			return x;
 		}
 
 		//dsigmoid(x)/dx = (1 - sigmoid(x)) * sigmoid(x)
-		private double[][] dsigmoid(double[][] sigmoid) {
+		private static double[][] dsigmoid(double[][] sigmoid) {
 			for (int i = 0; i < sigmoid[0].length; i++)
 				sigmoid[0][i] = (1 - sigmoid[0][i]) * sigmoid[0][i];
 			return sigmoid;
+		}
+
+		private static double[][] ReLU(double[][] x) {
+			for (int i = 0; i < x[0].length; i++)
+				x[0][i] = Math.max(0, x[0][i]);
+			return x;
+		}
+
+		/*
+		since values field has already been updated with activation in forward pass,
+		dReLU and dsigmoid have to be in terms of ReLU and sigmoid
+		*/
+		private static double[][] dReLU(double[][] x) {
+			for (int i = 0; i < x[0].length; i++)
+				if (x[0][i] != 0)
+					x[0][i] = 1;
+			return x;
 		}
 
 		private static double[][] append(double[][] x, double e) {

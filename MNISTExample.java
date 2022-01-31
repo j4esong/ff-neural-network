@@ -8,10 +8,10 @@ class MNISTExample {
 
 	public static void main(String[] args) throws FileNotFoundException, IOException {
 
-		double[][] images = loadImages(new File("mnist/train-images.idx3-ubyte"));
-		double[][] labels = oneHotDigit(loadLabels(new File("mnist/train-labels.idx1-ubyte")));
-		double[][] tImages = loadImages(new File("mnist/t10k-images.idx3-ubyte"));
-		double[] tLabels = toDoubleArray(loadLabels(new File("mnist/t10k-labels.idx1-ubyte")));
+		double[][] trainImages = loadImages(new File("mnist/train-images.idx3-ubyte"));
+		double[][] trainLabels = oneHotDigit(loadLabels(new File("mnist/train-labels.idx1-ubyte")));
+		double[][] testImages = loadImages(new File("mnist/t10k-images.idx3-ubyte"));
+		double[] testLabels = toDoubleArray(loadLabels(new File("mnist/t10k-labels.idx1-ubyte")));
 
 		FFNeuralNetwork net = new FFNeuralNetwork(784);
 
@@ -20,11 +20,11 @@ class MNISTExample {
 		net.addLayer(10, FFNeuralNetwork.ActivationFunction.sigmoid);
 
 		net.fillRandWeights(-1, 1);
-		net.train(images, labels, 7, 0.003, true);
-		net.testClassifier(tImages, tLabels, false);
+		net.train(trainImages, trainLabels, 1, 0.003, true);
+		net.testClassifier(testImages, testLabels, false);
 	}
 
-	public static double[][] oneHotDigit(int[] x) {
+	private static double[][] oneHotDigit(int[] x) {
 		double[][] result = new double[x.length][10];
 		for (int i = 0; i < x.length; i++) {
 			result[i][x[i]] = 1;
@@ -71,6 +71,14 @@ class MNISTExample {
 		for (int i = 0; i < array.length; i++)
 			result[i] = (double) array[i];
 		return result;
+	}
+
+	//for testing basic functionality of neural network (learn 1 case)
+	private static double[][] duplicateFirstLabel(double[][] labels) {
+		double[][] testMatrix = new double[labels.length][labels[0].length];
+		for (int i = 0; i < testMatrix.length; i++)
+			testMatrix[i] = labels[0];
+		return testMatrix;
 	}
 
 }
